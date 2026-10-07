@@ -347,6 +347,18 @@ section{margin-top:34px}
 .gc-t{margin-top:6px;font-family:'Grenze Gotisch',Georgia,serif;font-size:22px;background:#2A0E00;color:#FFD35C;border-radius:8px;padding:1px 10px}
 @media(max-width:700px){.gr-stage{height:380px}.gcard{width:92px;height:128px;margin-left:-46px}.gc-v{font-size:28px}.gr-stage.reveal .gcard{transform:translate(calc(var(--x) * .8),-110px) scale(1) rotate(var(--r))}}
 /* palmarès */
+#bdPal .mod{max-width:640px}
+.pal-h{font-family:'Grenze Gotisch',Georgia,serif;font-size:24px;color:#FFE6C2;margin-top:18px;padding-bottom:4px;border-bottom:1px solid rgba(255,105,0,.35)}
+.rgain{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:10px;font-size:13.5px}
+.rgain th,.rgain td{padding:7px 6px;text-align:center;border-bottom:1px dashed rgba(242,232,213,.14)}
+.rgain thead th{font-family:'Grenze Gotisch',Georgia,serif;font-size:18px;color:var(--flamme);font-weight:700}
+.rgain tbody th,.rgain tfoot th{text-align:left;font-weight:700;width:38%}
+.rgain td{white-space:nowrap}
+.rgain th small{display:block;font-weight:400;font-size:11px;opacity:.65;white-space:normal}
+.rgain td.tt{font-weight:800;color:#FFE6C2}
+.rgain tfoot th,.rgain tfoot td{border-top:2px solid rgba(255,105,0,.5);border-bottom:0;font-weight:800;color:var(--or);font-size:15px}
+.rgain-f{margin-top:10px;font-size:14px;opacity:.9}
+.mod{scrollbar-width:thin}
 .pday{margin-top:14px}.pdh{font-family:'Grenze Gotisch',Georgia,serif;font-size:20px;color:var(--flamme)}
 .pev{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px dashed rgba(242,232,213,.12);font-size:14px}
 .pev .pe{font-size:18px}
@@ -1528,17 +1540,44 @@ function compile(){
   if(S.win===1)out.push({d:30,e:"🎁",l:"Grande Récolte : "+RECOLTE_LOT+" pour "+equipeTxt(),k:"gold"});
   return out;
 }
+function recapGains(){
+  var P={},tot={b:0,g:0,ba:0,ga:0};EQUIPE.forEach(function(t){P[t]={b:0,g:0};});
+  var neb=0,turbo=TURBO.map(function(){return 0;}),bonsTurbo=0;
+  for(var i=0;i<=CI;i++){
+    [0,1].forEach(function(k){var di=drawInfo(i,k);if(!di)return;var w=whoOf(i,k);
+      if(di.b){tot.b++;if(w&&P[w])P[w].b++;else tot.ba++;}else{tot.g++;if(w&&P[w])P[w].g++;else tot.ga++;}});
+    if(S.eb[i])neb++;
+    for(var p=0;p<turboN(tot_(i));p++){turbo[p]++;bonsTurbo+=TURBO[p].bon;}
+  }
+  var eb=neb*EB_BON,rec=S.win===1?150:0,each=eb+bonsTurbo+rec,n=EQUIPE.length,M=monthTotals();
+  function row(ic,lab,cells,total,sub){return '<tr><th>'+ic+' '+lab+(sub?'<small>'+sub+'</small>':'')+'</th>'+cells.map(function(c){return '<td>'+c+'</td>';}).join("")+'<td class="tt">'+total+'</td></tr>';}
+  var h='<table class="rgain"><thead><tr><th></th>'+EQUIPE.map(function(t){return '<th>'+t+'</th>';}).join("")+'<th>Total</th></tr></thead><tbody>'
+   +row("🍬","Paquets de bonbons",EQUIPE.map(function(t){return P[t].b;}),tot.b,tot.ba?tot.ba+" à attribuer":"")
+   +row("🪄","Gages",EQUIPE.map(function(t){return P[t].g;}),tot.g,tot.ga?tot.ga+" à attribuer":"")
+   +row("☠️","Early Death",EQUIPE.map(function(){return eb+" €";}),(eb*n)+" €",neb+" fois × "+EB_BON+" €")
+   +row("🧪","Potion Turbo",EQUIPE.map(function(){return bonsTurbo+" €";}),(bonsTurbo*n)+" €",TURBO.map(function(p,k){return p.v+" ventes ×"+turbo[k];}).join(", "))
+   +(rec?row("🎁","Grande Récolte",EQUIPE.map(function(){return rec+" €";}),(rec*n)+" €",RECOLTE_LOT):"")
+   +'</tbody><tfoot><tr><th>💰 Total en bons</th>'+EQUIPE.map(function(){return '<td>'+each+' €</td>';}).join("")+'<td class="tt">'+(each*n)+' €</td></tr></tfoot></table>'
+   +'<div class="rgain-f">🎃 Ventes nettes du mois : <b>'+M.cn+' / '+M.co+'</b></div>';
+  return h;
+}
+function tot_(i){return tot(i);}
 function openPalmares(){
   var ev=compile(),el=document.getElementById("palL");
   if(!ev.length)el.innerHTML='<div class="pday" style="opacity:.7">Aucun exploit pour l\'instant. La première vente réveille le cimetière.</div>';
   else{var by={};ev.forEach(function(e){(by[e.d]=by[e.d]||[]).push(e);});
     el.innerHTML=Object.keys(by).sort(function(a,b){return a-b;}).map(function(d){
       return '<div class="pday"><div class="pdh">'+(d==="1"?"1er":d)+' octobre</div>'+by[d].map(function(e){return '<div class="pev"><span class="pe">'+e.e+'</span><span>'+e.l+'</span></div>';}).join("")+'</div>';}).join("");}
+  el.innerHTML='<div class="pal-h">Récap des gains</div>'+recapGains()+(ev.length?'<div class="pal-h">Détail jour par jour</div>':'')+el.innerHTML;
   document.getElementById("palS").textContent=ev.length+" exploit"+(ev.length>1?"s":"")+" ce mois-ci";
   document.getElementById("bdPal").classList.add("open");
 }
-function replay(){var ev=compile();if(!ev.length){celebrate("🕯️","Rien à rejouer pour l'instant","candy");return;}
-  ev.slice(-12).forEach(function(e){queueCeleb(e.e,e.l,e.k);});}
+function replay(){
+  var now=new Date(),day=WD[CI];
+  if(now.getFullYear()===AN&&now.getMonth()===MOIS&&WE.indexOf(now.getDate())>=0)day=now.getDate();
+  var ev=compile().filter(function(e){return e.d===day;});
+  if(!ev.length){celebrate("🕯️","Rien à rejouer aujourd'hui","candy");return;}
+  ev.forEach(function(e){queueCeleb(e.e,e.l,e.k);});}
 
 document.addEventListener("keydown",function(e){if(e.key==="Escape"){["bdDay","bdPal","bdWe"].forEach(function(id){var m=document.getElementById(id);if(m.classList.contains("open"))closeM(id);});}});
 document.addEventListener("visibilitychange",function(){if(!document.hidden){var c=computeCI();if(c!==CI){CI=c;renderAll();}}});
