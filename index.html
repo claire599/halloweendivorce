@@ -1189,7 +1189,8 @@ function weSum(uptoToday){var n=0,now=new Date();for(var w=0;w<WE.length;w++){if
 function monthTotals(){var cn=weSum(false);for(var i=0;i<NB;i++)cn+=S.net[i];return {cn:cn,co:OBJ_MOIS,ok:cn>=OBJ_MOIS};}
 function renderCountdown(){
   var el=document.getElementById("countdown"),ms=RECOLTE-new Date(),M=monthTotals();
-  if(ms<=0){el.innerHTML=M.ok?"👑 <b>Grande Récolte gagnée</b>":"🎃 <b>La Grande Récolte est ouverte</b>";return;}
+  if(M.ok){el.innerHTML=S.win===1?"👑 <b>Grande Récolte gagnée</b>":"👑 <b>Chaudron plein : remuez la louche !</b>";return;}
+  if(ms<=0){el.innerHTML="🎃 <b>La Grande Récolte est ouverte</b>";return;}
   var d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4);
   el.innerHTML="🕯️ Grande Récolte dans <b>"+(d?d+" j ":"")+h+" h "+(d?"":m+" min")+"</b>";
 }
@@ -1268,7 +1269,7 @@ function openWe(w){weK=w;var dt=new Date(AN,MOIS,WE[w]);
   document.getElementById("weT").textContent=cap(JOURS[dt.getDay()])+" "+WE[w]+" octobre";
   document.getElementById("weV").textContent=S.we[w];
   document.getElementById("bdWe").classList.add("open");}
-function weStep(n){if(weK<0)return;S.we[weK]=Math.max(0,S.we[weK]+n);document.getElementById("weV").textContent=S.we[weK];renderAll();commit(-100-weK);}
+function weStep(n){if(weK<0)return;var mo=monthTotals().ok;S.we[weK]=Math.max(0,S.we[weK]+n);if(n>0&&!mo&&monthTotals().ok){closeM("bdWe");checkMonth(mo);}document.getElementById("weV").textContent=S.we[weK];renderAll();commit(-100-weK);}
 
 /* ---------- RÉCOLTE ---------- */
 function caulSVG(fill){
@@ -1303,12 +1304,10 @@ function renderRecolte(){
   document.getElementById("recolte").innerHTML='<div class="bigcaul panel">'+caulSVG(fill)
     +'<div><div class="cnt">'+M.cn+' / '+M.co+'</div><div class="cl">ventes nettes du mois / objectif du mois'+(M.ok?", chaudron plein ✅":", encore "+reste+" à verser")+'</div>'
     +'<div class="gauge'+(M.ok?" full":"")+'" style="margin-top:12px"><span style="width:'+Math.round(fill*100)+'%"></span></div>'
-    +'<div class="finale" style="text-align:left;margin-top:14px">'+(S.win===1?'🎁 <b>'+RECOLTE_LOT+'</b> pour '+equipeTxt()+' !':'🎁 <b>SURPRISE !</b><br>Révélée le vendredi 30 octobre si le chaudron est plein.')+'</div></div></div>';
-  var btn=document.getElementById("grBtn"),open=new Date()>=RECOLTE;
-  btn.style.display=(open&&M.ok)?"":"none";   /* le bouton n'apparaît que le 30/10 à 17 h, si le chaudron est plein */
-  if(!open){btn.disabled=true;btn.textContent="";}
-  else if(M.ok){btn.disabled=false;btn.textContent=S.win===1?"🎁 Revoir la Grande Récolte":"Remuer la louche de la Grande Récolte";}
-  else{btn.disabled=true;btn.textContent="Chaudron pas assez rempli ce mois-ci";}
+    +'<div class="finale" style="text-align:left;margin-top:14px">'+(S.win===1?'🎁 <b>'+RECOLTE_LOT+'</b> pour '+equipeTxt()+' !':(M.ok?'🎁 <b>Le chaudron est plein !</b><br>Remuez la louche pour découvrir la surprise.':'🎁 <b>SURPRISE !</b><br>Révélée dès que le chaudron est plein.'))+'</div></div></div>';
+  var btn=document.getElementById("grBtn");
+  btn.style.display=M.ok?"":"none";   /* le bouton apparaît dès que le chaudron est plein */
+  btn.disabled=!M.ok;btn.textContent=S.win===1?"🎁 Revoir la Grande Récolte":"Remuer la louche de la Grande Récolte";
   document.getElementById("finale").innerHTML="";
 }
 
@@ -1381,6 +1380,10 @@ function runCQ(){if(!CQ.length){CQon=false;nextAction();return;}CQon=true;var x=
 function queueAction(fn){ACTQ.push(fn);if(!CQon&&!document.querySelector(".bd.open"))nextAction();}
 function nextAction(){if(CQon||document.querySelector(".bd.open"))return;var f=ACTQ.shift();if(f)f();}
 
+/* objectif du mois franchi : la Grande Récolte s'ouvre aussitôt */
+function checkMonth(wasOk){if(wasOk||S.win===1||!monthTotals().ok)return;
+  queueCeleb("👑","Le chaudron est plein ! "+OBJ_MOIS+" ventes","gold",true);
+  queueAction(function(){if(S.win!==1)openGR(true);else nextAction();});}
 /* tous les déclencheurs après une saisie à la hausse */
 function checkEvents(i,b){
   var t=tot(i),o=S.obj[i],tr=trig(i),half=Math.ceil(o/2);
@@ -1399,10 +1402,10 @@ function checkEvents(i,b){
 
 /* ---------- SAISIE ---------- */
 function snap(i){return {tot:tot(i),net:S.net[i]};}
-function bump(n){var i=CI,b=snap(i);S.net[i]=Math.max(0,S.net[i]+n);
+function bump(n){var i=CI,b=snap(i),mo=monthTotals().ok;S.net[i]=Math.max(0,S.net[i]+n);
   var num=document.getElementById("dTot");num.classList.remove("bump");void num.offsetWidth;num.classList.add("bump");
   if(n>0)candyJump();
-  renderAll();if(n>0)checkEvents(i,b);renderAll();commit(i);}
+  renderAll();if(n>0){checkEvents(i,b);checkMonth(mo);}renderAll();commit(i);}
 /* un bonbon saute du bouton + jusque dans la citrouille */
 function candyJump(){
   var jk=document.getElementById("jack"),btn=document.querySelector(".stp.plus");
@@ -1443,8 +1446,9 @@ function syncDay(){var i=openK,A=ACTES[acteOf(i)],t=tot(i);
   a.push('<button class="btn ghost" onclick="toggleEb('+i+')">☠️ '+(S.eb[i]?"Annuler l'Early Death":"Marquer Early Death ("+EB_SEUIL+" avant "+EB_HEURE+" h)")+'</button>');
   document.getElementById("mAct").innerHTML=a.join("");
 }
-function mstep(k,n){var i=openK,b=snap(i);S[k][i]=Math.max(0,S[k][i]+n);
+function mstep(k,n){var i=openK,b=snap(i),mo=monthTotals().ok;S[k][i]=Math.max(0,S[k][i]+n);
   if(n>0&&k!=="obj")checkEvents(i,b);
+  if(n>0&&k==="net"&&!mo&&monthTotals().ok){closeM("bdDay");checkMonth(mo);}
   renderAll();commit(i);}
 function toggleEb(i){
   if(S.eb[i]&&!confirm("Annuler l'Early Death du "+WD[i]+" octobre ?"))return;
@@ -1496,7 +1500,7 @@ var GRrun=false;
 function grCards(){return EQUIPE.map(function(tg,x){var n=EQUIPE.length,off=(x-(n-1)/2);
   return '<div class="gcard" style="--x:'+(off*128)+'px;--r:'+(off*9)+'deg;--dl:'+(x*.25)+'s"><div class="gc-e">🎁</div><div class="gc-v">150 €</div><div class="gc-l">Carte cadeau</div><div class="gc-t">'+tg+'</div></div>';}).join("");}
 function openGR(force){
-  if(!force&&(new Date()<RECOLTE||!monthTotals().ok))return;
+  if(!force&&!monthTotals().ok)return;
   var st=document.getElementById("grStage"),go=document.getElementById("grGo");
   st.className="gr-stage";
   var sm="";for(var x=0;x<16;x++)sm+='<i style="--sx:'+rnd(-90,90).toFixed(0)+'px;--sd:'+rnd(0,1.2).toFixed(2)+'s;--ss:'+rnd(.8,1.8).toFixed(2)+'"></i>';
